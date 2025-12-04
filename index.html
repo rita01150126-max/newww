@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day Dreamin' | The Atlas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;0,600;1,400&family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- 核心變數 --- */
+        :root {
+            --bg-base: #FDF5F6;
+            --bg-intro: #FFFFFF;
+            --text-main: #4A3B3E;
+            --accent-rose: #dcc9c9;
+            --bar: #d4bdbd;
+            --dropdown-bg: rgba(255, 255, 255, 0.95);
+            --nav-bg: rgba(253, 245, 246, 0.85);
+            --overlay-mask: rgba(74, 59, 62, 0.6);
+            --void-bg: #111111; /* The Void 的深色背景 */
+        }
+
+        /* --- 基礎設定 --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        h1, h2, h3, .serif-font { font-family: 'Cormorant Garamond', serif; }
+        a { text-decoration: none; color: inherit; }
+        button { cursor: pointer; }
+
+        /* --- 全螢幕雜訊濾鏡 --- */
+        .noise-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9000; opacity: 0.04;
+            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="1"/%3E%3C/svg%3E');
+        }
+
+        /* --- 自訂游標 --- */
+        .cursor-dot, .cursor-circle {
+            position: fixed; top: 0; left: 0; transform: translate(-50%, -50%);
+            border-radius: 50%; pointer-events: none; z-index: 9999;
+        }
+        .cursor-dot { width: 8px; height: 8px; background: var(--text-main); }
+        .cursor-circle {
+            width: 20px; height: 20px; border: 1px solid var(--accent-rose);
+            background: rgba(188, 143, 143, 0.1);
+            transition: width 0.3s, height 0.3s, background 0.3s;
+        }
+        body.hovering .cursor-circle {
+            width: 80px; height: 80px; background: rgba(188, 143, 143, 0.3); border-color: transparent; backdrop-filter: blur(1px);
+        }
+
+       /* --- 導覽列 --- */
+       nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1.5rem 4rem; position: fixed; width: 100%; top: 0; z-index: 100;
+            background-color: var(--bar); 
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(74, 59, 62, 0.1);
+            color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+        .logo { font-size: 1.8rem; font-style: italic; font-weight: 500; cursor: pointer; }
+
+        .menu-container { position: relative; display: inline-block; }
+        .menu-trigger { font-size: 0.9rem; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; padding: 10px; }
+
+        .dropdown-menu {
+            position: absolute; top: 100%; right: 0; margin-top: 10px;
+            background: var(--dropdown-bg); backdrop-filter: blur(10px);
+            padding: 1.5rem 2rem; border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            opacity: 0; transform: translateY(10px); pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            min-width: 150px; text-align: right;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .menu-container.active .dropdown-menu { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .dropdown-menu li { list-style: none; margin: 1rem 0; }
+        .dropdown-menu a {
+            font-family: 'Cormorant Garamond', serif; font-size: 1.5rem;
+            color: var(--text-main); position: relative; display: inline-block; transition: color 0.1s;
+        }
+        .dropdown-menu a:hover { color: var(--accent-rose); font-style: italic; }
+
+        /* --- 心理測驗入口 --- */
+        #diagnostic-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: #fff; z-index: 300;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1), opacity 0.5s ease;
+        }
+        #diagnostic-overlay.hidden { transform: translateY(-100%); pointer-events: none; }
+        .diag-question { font-family: 'Cormorant Garamond', serif; font-size: 3rem; margin-bottom: 3rem; text-align: center; font-style: italic; }
+        .diag-options { display: grid; grid-template-columns: 1fr; gap: 1.5rem; text-align: center; }
+        .diag-btn {
+            font-family: 'Montserrat', sans-serif; font-size: 1.1rem; letter-spacing: 1px;
+            padding: 1rem 2rem; border: 1px solid var(--accent-rose); background: transparent;
+            color: var(--text-main); transition: all 0.3s; cursor: pointer; width: 300px;
+        }
+        .diag-btn:hover { background: var(--bg-base); letter-spacing: 2px; }
+        .skip-btn { margin-top: 3rem; font-size: 0.8rem; text-decoration: underline; opacity: 0.5; cursor: pointer; }
+
+        /* --- Hero Section --- */
+        .hero { height: 100vh; display: flex; justify-content: center; align-items: center; position: relative; text-align: center;}
+        
+        /* Glitch Title */
+        .hero h1 { 
+            font-size: 6vw; line-height: 1; margin-bottom: 2rem; mix-blend-mode: overlay; text-align: center; 
+            position: relative; color: var(--text-main);
+        }
+        .hero h1:hover { animation: glitch-skew 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite; }
+        .hero h1:hover::before, .hero h1:hover::after {
+            content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.8;
+        }
+        .hero h1:hover::before { color: #ff00c1; z-index: -1; animation: glitch-anim-1 2.5s infinite linear alternate-reverse; }
+        .hero h1:hover::after { color: #00fff9; z-index: -2; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
+
+        .floating-imgs img {
+            position: absolute; width: 250px; height: 350px; object-fit: cover;
+            opacity: 0.8; filter: grayscale(30%); border-radius: 4px; transition: transform 0.1s linear;
+        }
+        .img-1 { top: 15%; left: 15%; z-index: 1; }
+        .img-2 { bottom: 15%; right: 15%; z-index: 3; }
+
+        /* --- Intro Section --- */
+        .intro-wrapper {
+            max-width: 100%; background-color: var(--bg-intro);
+            border-top: 1px solid rgba(188, 143, 143, 0.2); border-bottom: 1px solid rgba(188, 143, 143, 0.2);
+            display: flex; justify-content: center; padding: 0;
+        }
+        .intro-container {
+            max-width: 1200px; padding: 10rem 4rem;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: center;
+        }
+        .intro-text-col { padding-right: 1rem; }
+        .intro-subtitle { font-size: 1rem; letter-spacing: 3px; text-transform: uppercase; color: var(--accent-rose); margin-bottom: 1.5rem; display: block; }
+        .intro-title { font-size: 3rem; line-height: 1.1; margin-bottom: 2rem; color: var(--text-main); font-style: italic; min-height: 3.3rem; }
+        .intro-desc { font-size: 1.1rem; line-height: 1.8; opacity: 0.8; font-family: 'Montserrat', sans-serif; font-weight: 300; text-align: justify; }
+        .intro-img-col { height: 600px; position: relative; overflow: hidden; border-radius: 4px; }
+        .intro-img-col img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.5s cubic-bezier(0.1, 1, 0.2, 1); filter: grayscale(10%); }
+        .intro-wrapper:hover .intro-img-col img { transform: scale(1.05); filter: grayscale(0%); }
+
+        /* --- Gallery Section --- */
+        .gallery-section { padding: 8rem 4rem 12rem 4rem; background: var(--bg-base); }
+        .gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4rem; max-width: 1100px; margin: 0 auto; }
+        .gallery-item { cursor: pointer; display: block; position: relative; }
+        .gallery-item:nth-child(even) { margin-top: 12rem; }
+        .img-wrapper { overflow: hidden; height: 640px; width: 100%; position: relative; }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(0.1, 1, 0.2, 1); }
+        .gallery-item:hover img { transform: scale(1.1); }
+        .whisper-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--overlay-mask); display: flex; justify-content: center; align-items: center;
+            padding: 2rem; opacity: 0; transition: opacity 0.5s ease;
+        }
+        .gallery-item:hover .whisper-overlay { opacity: 1; }
+        .whisper-text {
+            color: #fff; font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-style: italic;
+            text-align: center; line-height: 1.5; transform: translateY(20px); transition: transform 0.5s ease;
+        }
+        .gallery-item:hover .whisper-text { transform: translateY(0); }
+        .caption {
+            font-family: 'Cormorant Garamond'; font-size: 1.5rem; margin-top: 1rem;
+            display: flex; justify-content: space-between; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 0.5rem; align-items: center;
+        }
+        .explore-hint { font-size: 1rem; font-style: italic; color: var(--accent-rose); opacity: 0; transform: translateX(-10px); transition: all 0.3s ease; }
+        .gallery-item:hover .explore-hint { opacity: 1; transform: translateX(0); }
+
+        /* --- [新增區塊] Collage Teaser --- */
+        .collage-section {
+            padding: 8rem 4rem;
+            background: #fff;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .teaser-content { max-width: 800px; margin: 0 auto; }
+        .teaser-title { font-size: 3rem; font-family: 'Cormorant Garamond', serif; font-style: italic; margin-bottom: 1.5rem; }
+        .teaser-desc { font-size: 1.1rem; opacity: 0.7; margin-bottom: 3rem; }
+        .action-btn {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem; letter-spacing: 2px; text-transform: uppercase;
+            padding: 1rem 3rem;
+            background: var(--text-main); color: #fff;
+            border: none; border-radius: 50px;
+            cursor: pointer; transition: transform 0.3s, background 0.3s;
+        }
+        .action-btn:hover { transform: scale(1.05); background: var(--accent-rose); }
+
+        /* --- [新增區塊] The Void (Journal) Teaser --- */
+        .void-section {
+            padding: 8rem 4rem;
+            background: var(--void-bg);
+            color: #fff;
+            text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .void-title { font-size: 3rem; font-family: 'Cormorant Garamond', serif; font-style: italic; margin-bottom: 1.5rem; color: #fff; }
+        .void-desc { font-size: 1.1rem; opacity: 0.7; margin-bottom: 3rem; color: rgba(255,255,255,0.7); }
+        .void-btn {
+            background: transparent; border: 1px solid #fff; color: #fff;
+        }
+        .void-btn:hover { background: #fff; color: #000; }
+
+
+        /* --- Chapter Overlay --- */
+        #chapter-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: var(--bg-base); z-index: 200;
+            transform: translateY(100%); transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
+            display: grid; grid-template-columns: 1fr 1fr; overflow: hidden;
+        }
+        #chapter-overlay.active { transform: translateY(0); }
+        .overlay-content {
+            padding: 8rem 4rem; display: flex; flex-direction: column; justify-content: center;
+            opacity: 0; transform: translateY(50px); transition: all 0.6s ease 0.3s;
+        }
+        #chapter-overlay.active .overlay-content { opacity: 1; transform: translateY(0); }
+        .overlay-image { width: 100%; height: 100vh; position: relative; overflow: hidden; }
+        .overlay-image img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.2); transition: transform 1.5s ease; }
+        #chapter-overlay.active .overlay-image img { transform: scale(1); }
+        .chapter-num { font-size: 1rem; letter-spacing: 2px; text-transform: uppercase; color: var(--accent-rose); margin-bottom: 1rem; display: block; }
+        .chapter-head { font-size: 4rem; line-height: 1; margin-bottom: 2rem; font-style: italic; }
+        .chapter-body { font-size: 1.1rem; line-height: 1.8; max-width: 500px; margin-bottom: 3rem; opacity: 0.8; text-align: justify;}
+        .close-btn {
+            position: absolute; top: 2.5rem; right: 4rem;
+            font-family: 'Cormorant Garamond', serif; font-size: 1.5rem;
+            z-index: 202; mix-blend-mode: difference; color: #fff;
+            cursor: pointer; opacity: 0; transition: opacity 0.5s 0.5s;
+        }
+        #chapter-overlay.active .close-btn { opacity: 1; }
+        .back-link { border-bottom: 1px solid var(--text-main); padding-bottom: 5px; display: inline-block; width: fit-content; cursor: pointer;}
+
+        /* --- [The Void] Overlay --- */
+        #journal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: var(--void-bg); z-index: 250;
+            transform: translateY(100%); transition: transform 0.6s cubic-bezier(0.77, 0, 0.175, 1);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
+        }
+        #journal-overlay.active { transform: translateY(0); }
+        .journal-container {
+            text-align: center; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; z-index: 2;
+        }
+        .input-group { border-bottom: 1px solid rgba(255,255,255,0.5); padding-bottom: 10px; display: flex; gap: 10px; z-index: 10; }
+        #dream-input { background: transparent; border: none; outline: none; color: #fff; font-family: 'Montserrat', sans-serif; font-size: 1.2rem; width: 300px; text-align: center; }
+        #dream-input::placeholder { color: rgba(255,255,255,0.3); }
+        .input-group button {
+            background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 15px; cursor: pointer;
+            font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; transition: all 0.3s;
+        }
+        .input-group button:hover { background: #fff; color: #1a1a1a; }
+        #dream-cloud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .floating-text {
+            position: absolute; color: rgba(255,255,255,0.4); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.5rem;
+            white-space: nowrap; animation: floatHorizontal linear infinite;
+        }
+
+        /* --- [Collage] Overlay (優化拼圖感) --- */
+        #collage-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: #f0f0f0; z-index: 250;
+            transform: translateY(100%); transition: transform 0.6s cubic-bezier(0.77, 0, 0.175, 1);
+            display: flex; overflow: hidden;
+        }
+        #collage-overlay.active { transform: translateY(0); }
+        
+        .collage-sidebar {
+            width: 300px; background: #fff; border-right: 1px solid #ddd;
+            padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem;
+            z-index: 10; box-shadow: 5px 0 15px rgba(0,0,0,0.05);
+        }
+        .asset-title { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; color: var(--text-main); margin-bottom: 0.5rem; }
+        .asset-item { 
+            cursor: pointer; transition: transform 0.2s; 
+            border: 1px solid #eee; padding: 5px; background: #fafafa;
+        }
+        .asset-item:hover { transform: scale(1.05); border: 1px solid var(--accent-rose); }
+        .asset-item img { width: 100%; display: block; }
+        .asset-text { 
+            font-family: 'Cormorant Garamond', serif; font-size: 2rem; font-style: italic; 
+            color: var(--text-main); text-align: center; border: 1px dashed #ccc; padding: 10px;
+        }
+
+        /* 畫布區塊：加上網格背景 */
+        .collage-canvas-area { 
+            flex: 1; position: relative; display: flex; justify-content: center; align-items: center; 
+            background-color: #e5e5f7;
+            background-image: radial-gradient(#444cf7 0.5px, #e5e5f7 0.5px);
+            background-size: 20px 20px;
+            opacity: 0.8;
+        }
+        .collage-board {
+            width: 800px; height: 600px; background: #fff; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            position: relative; overflow: hidden;
+        }
+        
+        /* 拼貼元素：加上白邊和陰影，更有貼紙感 */
+        .collage-element {
+            position: absolute; cursor: move; user-select: none;
+            transition: box-shadow 0.2s;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+        }
+        .collage-element img { 
+            width: 150px; pointer-events: none; 
+            border: 5px solid #fff; /* 白邊 */
+        } 
+        .collage-element span { font-size: 2rem; font-family: 'Cormorant Garamond', serif; pointer-events: none; }
+        .collage-element:active { filter: drop-shadow(5px 10px 15px rgba(0,0,0,0.3)); transform: scale(1.02); }
+
+        .collage-controls {
+            position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px;
+        }
+        .save-btn {
+            background: var(--text-main); color: #fff; border: none; padding: 10px 20px;
+            font-family: 'Montserrat', sans-serif; cursor: pointer;
+        }
+
+        /* Footer */
+        footer { padding: 8rem; text-align: center; font-size: 0.8rem; letter-spacing: 2px; background: #ffffff; color: rgba(74, 59, 62, 0.6); }
+        .reveal-up { opacity: 0; transform: translateY(50px); transition: all 1s ease-out; filter: blur(10px); }
+        .reveal-up.visible { opacity: 1; transform: translateY(0); filter: blur(0); }
+
+        /* Animation Keyframes */
+        @keyframes glitch-anim-1 {
+            0% { clip-path: inset(20% 0 80% 0); transform: translate(-2px, 1px); }
+            100% { clip-path: inset(30% 0 50% 0); transform: translate(1px, -1px); }
+        }
+        @keyframes glitch-anim-2 {
+            0% { clip-path: inset(10% 0 60% 0); transform: translate(2px, -1px); }
+            100% { clip-path: inset(20% 0 60% 0); transform: translate(-2px, 1px); }
+        }
+        @keyframes glitch-skew {
+            0% { transform: skew(0deg); } 100% { transform: skew(0deg); }
+        }
+        @keyframes floatAround {
+            0% { transform: translate(0, 0); } 100% { transform: translate(30px, -30px); }
+        }
+
+        /* 手機版適配 */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 3rem; }
+            .img-1, .img-2 { width: 150px; height: 200px; opacity: 0.5; }
+            .gallery-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .gallery-item:nth-child(even) { margin-top: 0; }
+            nav, .overlay-content, .close-btn { padding: 1.5rem; right: 1.5rem; }
+            #chapter-overlay { grid-template-columns: 1fr; overflow-y: auto; display: block; }
+            .overlay-image { height: 40vh; }
+            .chapter-head { font-size: 2.5rem; }
+            .cursor-dot, .cursor-circle { display: none; }
+            * { cursor: auto; }
+            .intro-container { grid-template-columns: 1fr; gap: 3rem; padding: 4rem 2rem; }
+            .intro-img-col { height: 400px; order: -1; }
+            .intro-title { font-size: 2.5rem; min-height: auto; }
+            .intro-text-col { padding-right: 0; }
+            .collage-sidebar { width: 100px; padding: 1rem; }
+            .collage-board { width: 100%; height: 400px; }
+            .collage-overlay { flex-direction: column; }
+        }
+
+        @media print {
+            body > * { display: none !important; }
+            #collage-overlay { display: flex !important; transform: translateY(0) !important; background: #fff !important; }
+            .collage-sidebar, .close-btn, .collage-controls { display: none !important; }
+            .collage-canvas-area { background: #fff !important; align-items: flex-start; }
+            .collage-board { box-shadow: none; border: 1px solid #ccc; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="noise-overlay"></div>
+    <div class="cursor-dot"></div>
+    <div class="cursor-circle"></div>
+
+    <div id="diagnostic-overlay">
+        <h2 class="diag-question">現在的你，想逃去哪裡？</h2>
+        <div class="diag-options">
+            <button class="diag-btn link-hover" onclick="startJourney(1)">A. 逃離吵雜的通知聲</button>
+            <button class="diag-btn link-hover" onclick="startJourney(2)">B. 躲進無人的迷霧裡</button>
+            <button class="diag-btn link-hover" onclick="startJourney(3)">C. 回到十年前的夏天</button>
+            <button class="diag-btn link-hover" onclick="startJourney(4)">D. 沉溺在鏡子面前</button>
+        </div>
+        <div class="skip-btn link-hover" onclick="skipDiagnostic()">我不逃避，直接進入</div>
+    </div>
+
+    <div id="journal-overlay">
+        <div class="close-btn link-hover" onclick="closeOverlays()" style="opacity: 1; color: #fff; mix-blend-mode: normal;">CLOSE</div>
+        <div class="journal-container">
+            <h2 class="serif-font" style="font-size: 3rem; margin-bottom: 2rem; color: #fff;">The Void</h2>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 3rem;">對著虛空喊話，你的聲音將成為夢境的回音。</p>
+            <div class="input-group">
+                <input type="text" id="dream-input" placeholder="Whisper into the void..." maxlength="30">
+                <button onclick="submitDream()">ECHO</button>
+            </div>
+            <div id="dream-cloud">
+                <span class="floating-text" style="top: 20%; left: 10%; animation-duration: 15s;">不想面對星期一</span>
+                <span class="floating-text" style="top: 50%; left: 80%; animation-duration: 12s;">想變成一隻貓</span>
+                <span class="floating-text" style="top: 80%; left: 30%; animation-duration: 18s;">懷念2019年的夏天</span>
+                <span class="floating-text" style="top: 15%; left: 60%; animation-duration: 20s;">System Failure</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="collage-overlay">
+        <div class="close-btn link-hover" onclick="closeOverlays()" style="opacity: 1; color: #000; mix-blend-mode: normal;">CLOSE</div>
+        
+        <div class="collage-sidebar">
+            <h3 class="asset-title">Fragments</h3>
+            <div class="asset-item" onclick="addCollageImage('https://i.pinimg.com/736x/54/99/ab/5499ab68bffd691eabb4973d12f76f13.jpg')">
+                <img src="https://i.pinimg.com/736x/54/99/ab/5499ab68bffd691eabb4973d12f76f13.jpg" alt="Asset">
+            </div>
+            <div class="asset-item" onclick="addCollageImage('https://i.pinimg.com/1200x/0b/a3/2e/0ba32e46ea2bfc62b93f4fa0eb5185e8.jpg')">
+                <img src="https://i.pinimg.com/1200x/0b/a3/2e/0ba32e46ea2bfc62b93f4fa0eb5185e8.jpg" alt="Asset">
+            </div>
+            <div class="asset-item" onclick="addCollageImage('https://romantic-fairytale.com/cdn/shop/files/20251107_113648.jpg?v=1762483133&width=2048')">
+                <img src="https://romantic-fairytale.com/cdn/shop/files/20251107_113648.jpg?v=1762483133&width=2048" alt="Asset">
+            </div>
+            <div class="asset-item" onclick="addCollageImage('https://i.pinimg.com/736x/1e/e4/bb/1ee4bb8a8d4d313a653d21790d69c844.jpg')">
+                <img src="https://i.pinimg.com/736x/1e/e4/bb/1ee4bb8a8d4d313a653d21790d69c844.jpg" alt="Asset">
+            </div>
+            
+            <h3 class="asset-title" style="margin-top: 2rem;">Words</h3>
+            <div class="asset-item" onclick="addCollageText('Glitch')">
+                <div class="asset-text">Glitch</div>
+            </div>
+            <div class="asset-item" onclick="addCollageText('Dream')">
+                <div class="asset-text">Dream</div>
+            </div>
+             <div class="asset-item" onclick="addCollageText('Bloom')">
+                <div class="asset-text">Bloom</div>
+            </div>
+        </div>
+
+        <div class="collage-canvas-area">
+            <div class="collage-board" id="collage-board">
+                <p style="position:absolute; top:45%; width:100%; text-align:center; color:#ccc; pointer-events:none;">Click fragments to add.<br>Drag to move. Click to rotate.</p>
+            </div>
+            <div class="collage-controls">
+                <button class="save-btn" onclick="saveCollage()">SAVE DREAM</button>
+            </div>
+        </div>
+    </div>
+
+
+    <nav>
+      <div class="logo serif-font link-hover" onclick="scrollToTop()">Day Dreamin'</div>
+      
+      <div class="menu-container">
+          <div class="menu-trigger link-hover">Menu ▾</div>
+          <ul class="dropdown-menu">
+              <li><a href="#" class="link-hover" onclick="navAction('home'); return false;">Home</a></li>
+              <li><a href="#" class="link-hover" onclick="navAction('realm'); return false;">Realm</a></li>
+              <li><a href="#" class="link-hover" onclick="openCollage(); return false;">Collage</a></li>
+              <li><a href="#" class="link-hover" onclick="openJournal(); return false;">The Void</a></li>
+              <li><a href="#" class="link-hover" onclick="navAction('contact'); return false;">Contact</a></li>
+          </ul>
+      </div>
+  </nav>
+
+    <main id="main-content">
+        <section class="hero">
+            <div class="floating-imgs">
+                <img src="https://i.pinimg.com/736x/10/09/4f/10094ffcf53661504f0598caba724b56.jpg" class="img-1 parallax-img" data-speed="2" alt="Dream 1">
+                <img src="https://i.pinimg.com/736x/30/03/ca/3003cadb303fc3f72f747abd1d311473.jpg" class="img-2 parallax-img" data-speed="-2" alt="Dream 2">
+            </div>
+            <div class="hero-text reveal-up">
+                <h1 class="serif-font" data-text="The Digital&#10;Dream Atlas">The Digital <br>Dream Atlas</h1>
+                <p style="letter-spacing: 2px; text-transform: uppercase; font-size: 0.8rem; margin-top: 2rem;">Scroll to dream</p>
+            </div>
+        </section>
+
+        <section class="intro-wrapper reveal-up">
+            <div class="intro-container">
+                <div class="intro-text-col">
+                    <span class="intro-subtitle">Concept</span>
+                    <h2 class="intro-title serif-font" id="typewriter-text"></h2>
+                    <p class="intro-desc">
+                        在這個資訊焦慮的時代，做白日夢不是系統錯誤，而是我們大腦的修復機制。
+                        <br><br>
+                        Day Dreamin' 提供的四個夢域，不只是視覺的風格，更是現代人逃離現實的情緒出口。當現實令人窒息時，我們的衣服是你情緒的盔甲，是你隨身的防空洞。
+                        <br><br>
+                        在這裡，允許故障，允許迷惘，允許你短暫離線。
+                    </p>
+                </div>
+
+                <div class="intro-img-col">
+                    <img src="https://i.pinimg.com/736x/53/8b/3a/538b3a5b4ce75a9224ced2cb0812f41a.jpg" alt="Intro Visual">
+                </div>
+            </div>
+        </section>
+
+        <section class="gallery-section" id="realm">
+            <div class="gallery-grid">
+                
+                <div class="gallery-item reveal-up link-hover" onclick="openChapter(1)">
+                    <div class="img-wrapper">
+                        <img src="https://i.pinimg.com/736x/54/99/ab/5499ab68bffd691eabb4973d12f76f13.jpg" alt="Fashion">
+                        <div class="whisper-overlay">
+                            <p class="whisper-text">「允許故障。<br>允許你的訊號中斷。」</p>
+                        </div>
+                    </div>
+                    <div class="caption">
+                        <span>Chapter 01</span>
+                        <span class="explore-hint">Explore ↗</span>
+                        <span>Glitch Reality</span>
+                    </div>
+                </div>
+
+                <div class="gallery-item reveal-up link-hover" onclick="openChapter(2)">
+                    <div class="img-wrapper">
+                        <img src="https://i.pinimg.com/1200x/0b/a3/2e/0ba32e46ea2bfc62b93f4fa0eb5185e8.jpg" alt="Flower">
+                        <div class="whisper-overlay">
+                            <p class="whisper-text">「現實太銳利。<br>所以我們躲進霧裡。」</p>
+                        </div>
+                    </div>
+                    <div class="caption">
+                        <span>Chapter 02</span>
+                        <span class="explore-hint">Explore ↗</span>
+                        <span>Echoes in the Haze</span>
+                    </div>
+                </div>
+
+                <div class="gallery-item reveal-up link-hover" onclick="openChapter(3)">
+                    <div class="img-wrapper">
+                        <img src="https://romantic-fairytale.com/cdn/shop/files/20251107_113648.jpg?v=1762483133&width=2048" alt="Abstract">
+                        <div class="whisper-overlay">
+                            <p class="whisper-text">「我們是時間的流浪者。<br>撿拾舊時光的碎片。」</p>
+                        </div>
+                    </div>
+                    <div class="caption">
+                        <span>Chapter 03</span>
+                        <span class="explore-hint">Explore ↗</span>
+                        <span>The Glitch in Time</span>  
+                    </div>
+                </div>
+
+                <div class="gallery-item reveal-up link-hover" onclick="openChapter(4)">
+                    <div class="img-wrapper">
+                        <img src="https://i.pinimg.com/736x/1e/e4/bb/1ee4bb8a8d4d313a653d21790d69c844.jpg" alt="Texture">
+                        <div class="whisper-overlay">
+                            <p class="whisper-text">「為自己開花。<br>不為誰的眼光。」</p>
+                        </div>
+                    </div>
+                    <div class="caption">
+                        <span>Chapter 04</span>
+                        <span class="explore-hint">Explore ↗</span>
+                        <span>Reflected Bloom</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="collage-section reveal-up">
+            <div class="teaser-content">
+                <h2 class="teaser-title">Dream Collage Studio</h2>
+                <p class="teaser-desc">收集夢境的碎片，拼湊出屬於你的潛意識地圖。</p>
+                <button class="action-btn link-hover" onclick="openCollage()">Start Creating</button>
+            </div>
+        </section>
+
+        <section class="void-section reveal-up">
+            <div class="teaser-content">
+                <h2 class="void-title">Enter The Void</h2>
+                <p class="void-desc">這裡沒有審判，只有回音。將你的夢境與煩惱拋入虛空。</p>
+                <button class="action-btn void-btn link-hover" onclick="openJournal()">Whisper Now</button>
+            </div>
+        </section>
+
+        <footer id="contact">
+            <p class="link-hover">王姿予 林佑恩 黃子瑄 林宣穎<br><br>Designed for the daydreamers.</p>
+        </footer>
+    </main>
+
+    <div id="chapter-overlay">
+        <div class="close-btn link-hover" onclick="closeOverlays()">CLOSE</div>
+        <div class="overlay-content">
+            <span class="chapter-num" id="ov-num">Chapter 01</span>
+            <h1 class="chapter-head serif-font" id="ov-title">Glitch Reality</h1>
+            <p class="chapter-body" id="ov-desc">Description goes here...</p>
+            <div class="back-link serif-font link-hover" onclick="closeOverlays()">Return to Atlas</div>
+        </div>
+        <div class="overlay-image">
+            <img id="ov-img" src="" alt="Chapter Visual">
+        </div>
+    </div>
+
+    <script>
+        // --- 通用：關閉所有 Overlay ---
+        function closeOverlays() {
+            document.getElementById('chapter-overlay').classList.remove('active');
+            document.getElementById('journal-overlay').classList.remove('active');
+            document.getElementById('collage-overlay').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // --- 0. 心理測驗邏輯 ---
+        const diagnosticOverlay = document.getElementById('diagnostic-overlay');
+
+        function startJourney(id) {
+            diagnosticOverlay.classList.add('hidden');
+            setTimeout(() => {
+                const realmSection = document.getElementById('realm');
+                if(realmSection) realmSection.scrollIntoView({ behavior: 'smooth' });
+                setTimeout(() => { openChapter(id); }, 800);
+            }, 500);
+        }
+
+        function skipDiagnostic() { diagnosticOverlay.classList.add('hidden'); }
+
+        // --- 1. 打字機特效 ---
+        const textToType = "Daydream is not a bug,\nit's a feature.";
+        const typeWriterElement = document.getElementById('typewriter-text');
+        let typeIndex = 0;
+
+        function typeWriter() {
+            if (typeIndex < textToType.length) {
+                const char = textToType.charAt(typeIndex);
+                typeWriterElement.innerHTML += char === '\n' ? '<br>' : char;
+                typeIndex++;
+                setTimeout(typeWriter, 50);
+            }
+        }
+
+        const introObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    typeWriter();
+                    introObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+        if(document.querySelector('.intro-wrapper')) introObserver.observe(document.querySelector('.intro-wrapper'));
+
+        // --- 2. 視差與游標 ---
+        document.addEventListener('mousemove', (e) => {
+            const cursorDot = document.querySelector('.cursor-dot');
+            const cursorCircle = document.querySelector('.cursor-circle');
+            cursorDot.style.left = `${e.clientX}px`; cursorDot.style.top = `${e.clientY}px`;
+            cursorCircle.animate({ left: `${e.clientX}px`, top: `${e.clientY}px` }, { duration: 500, fill: "forwards" });
+
+            const heroSection = document.querySelector('.hero');
+            if (heroSection && window.innerWidth >= 768) {
+                const x = (window.innerWidth - e.pageX * 2) / 100;
+                const y = (window.innerHeight - e.pageY * 2) / 100;
+                document.querySelectorAll('.parallax-img').forEach(img => {
+                    const speed = img.getAttribute('data-speed');
+                    img.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+                });
+            }
+        });
+
+        // --- 3. 選單與導覽 ---
+        const menuContainer = document.querySelector('.menu-container');
+        const menuTrigger = document.querySelector('.menu-trigger');
+
+        menuTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuContainer.classList.toggle('active');
+        });
+
+        document.addEventListener('click', () => { menuContainer.classList.remove('active'); });
+
+        function navAction(target) {
+            closeOverlays();
+            menuContainer.classList.remove('active');
+            if (target === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
+            else if (target === 'realm') {
+                const s = document.getElementById('realm'); if(s) s.scrollIntoView({ behavior: 'smooth' });
+            } else if (target === 'contact') {
+                const s = document.getElementById('contact'); if(s) s.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        function scrollToTop() { closeOverlays(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+        // --- 4. Journal (The Void) 邏輯 ---
+        function openJournal() {
+            closeOverlays();
+            menuContainer.classList.remove('active');
+            document.getElementById('journal-overlay').classList.add('active');
+        }
+        function submitDream() {
+            const input = document.getElementById('dream-input');
+            const text = input.value.trim();
+            if(text) {
+                const span = document.createElement('span');
+                span.textContent = text;
+                span.classList.add('floating-text');
+                span.style.top = `${Math.floor(Math.random() * 80) + 10}%`;
+                span.style.left = `${Math.floor(Math.random() * 80) + 10}%`;
+                span.style.color = "rgba(188, 143, 143, 0.8)";
+                span.style.zIndex = "5";
+                span.style.animation = `floatAround ${Math.floor(Math.random() * 10) + 10}s infinite alternate ease-in-out`;
+                document.getElementById('dream-cloud').appendChild(span);
+                input.value = "";
+            }
+        }
+
+        // --- 5. Collage 邏輯 (優化拼圖感) ---
+        function openCollage() {
+            closeOverlays();
+            menuContainer.classList.remove('active');
+            document.getElementById('collage-overlay').classList.add('active');
+        }
+
+        function addCollageImage(src) {
+            const el = document.createElement('div');
+            el.classList.add('collage-element');
+            // 隨機位置與角度，增加自然拼貼感
+            const randX = Math.floor(Math.random() * 50) + 50;
+            const randY = Math.floor(Math.random() * 50) + 50;
+            const randRot = Math.floor(Math.random() * 40) - 20; // -20deg to 20deg
+            
+            el.style.left = `${randX}px`; el.style.top = `${randY}px`;
+            el.style.transform = `rotate(${randRot}deg)`;
+            
+            el.innerHTML = `<img src="${src}" draggable="false">`;
+            setupDrag(el, randRot); // 傳入初始角度
+            document.getElementById('collage-board').appendChild(el);
+        }
+
+        function addCollageText(text) {
+            const el = document.createElement('div');
+            el.classList.add('collage-element');
+            const randX = Math.floor(Math.random() * 50) + 100;
+            const randY = Math.floor(Math.random() * 50) + 100;
+            const randRot = Math.floor(Math.random() * 20) - 10;
+            
+            el.style.left = `${randX}px`; el.style.top = `${randY}px`;
+            el.style.transform = `rotate(${randRot}deg)`;
+
+            el.innerHTML = `<span>${text}</span>`;
+            setupDrag(el, randRot);
+            document.getElementById('collage-board').appendChild(el);
+        }
+
+        function setupDrag(el, initialRotation = 0) {
+            let isDragging = false;
+            let currentX; let currentY;
+            let initialX; let initialY;
+            let xOffset = 0; let yOffset = 0;
+            let rotation = initialRotation;
+
+            el.addEventListener("mousedown", dragStart);
+            el.addEventListener("click", () => {
+                rotation += 45; // 點擊旋轉
+                updateTransform();
+            });
+
+            function dragStart(e) {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+                if (e.target === el || el.contains(e.target)) {
+                    isDragging = true;
+                    // 置頂
+                    document.querySelectorAll('.collage-element').forEach(e => e.style.zIndex = 1);
+                    el.style.zIndex = 10;
+                }
+            }
+            
+            document.addEventListener("mouseup", dragEnd);
+            document.addEventListener("mousemove", drag);
+
+            function dragEnd() {
+                initialX = currentX; initialY = currentY; isDragging = false;
+            }
+
+            function drag(e) {
+                if (isDragging) {
+                    e.preventDefault();
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                    xOffset = currentX; yOffset = currentY;
+                    updateTransform();
+                }
+            }
+            
+            function updateTransform() {
+                 el.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotation}deg)`;
+            }
+        }
+
+        function saveCollage() {
+            alert("正在準備下載您的夢境拼貼...");
+            window.print();
+        }
+
+
+        // --- 資料庫與 Chapter Overlay ---
+        const chapterData = {
+            1: { title: "Glitch Reality", img: "https://i.pinimg.com/736x/8f/a1/c0/8fa1c08d131970ec824fc403b8ca961e.jpg", desc: "【資訊焦慮與數位偽裝】<br><br>你是否覺得大腦即使閉上眼還在滑動態？每天醒來，我們都在扮演一個完美的帳號，而不是一個真實的人。在這個夢域裡，我們承認混亂。我們穿上帶有雜訊的衣服，是因為我們已經習慣了這個充滿 Error 的世界。<br><br>穿上這些雜訊，讓世界暫時讀取不到原本的你。" },
+            2: { title: "Echoes in the Haze", img: "https://i.pinimg.com/1200x/79/71/64/797164892c3f44d7ffab2bf51fa061a6.jpg", desc: "【迷惘與安全感】<br><br>獻給那些不想起床面對世界的人。現實太銳利，會割傷靈魂，所以我們需要模糊的邊界來保護自己。<br><br>不用看清路在哪裡，只要感覺現在很舒服就好。這件衣服是你隨身的防空洞，溫柔且安靜。" },
+            3: { title: "The Glitch in Time", img: "https://i.pinimg.com/1200x/6f/86/8f/6f868f2980124e970a6dd901acf709df.jpg", desc: "【懷舊與拒絕長大】<br><br>未來太快，快到讓人暈眩。我們只好轉身向後跑，去撿拾那些舊時光的碎片。<br><br>這個夢域是給那些覺得「生錯年代」的人。我們撕裂時間，把過去的美好拼貼在現在身上。穿著過去的影子，走在未來的街道上，做一個時間的流浪者。" },
+            4: { title: "Reflected Bloom", img: "https://i.pinimg.com/736x/8f/3a/74/8f3a74b1ae73ffc63f5ed84d2326fd42.jpg", desc: "【自我凝視與瞬間】<br><br>這是關於自戀與自我懷疑的一體兩面。我們在鏡子裡找自己，在自拍裡找存在感。就像花朵一樣，拼命綻放，只為了被看見一瞬間。<br><br>虛幻也沒關係，至少這一刻，美是真的。為自己開花，不為誰的眼光。" }
+        };
+
+        const overlay = document.getElementById('chapter-overlay');
+        const ovNum = document.getElementById('ov-num');
+        const ovTitle = document.getElementById('ov-title');
+        const ovDesc = document.getElementById('ov-desc');
+        const ovImg = document.getElementById('ov-img');
+
+        function openChapter(id) {
+            const data = chapterData[id];
+            ovNum.textContent = `Chapter 0${id}`;
+            ovTitle.textContent = data.title;
+            ovDesc.innerHTML = data.desc;
+            ovImg.src = data.img;
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        document.querySelectorAll('.reveal-up').forEach(el => {
+            new IntersectionObserver((entries) => {
+                entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+            }, { threshold: 0.1 }).observe(el);
+        });
+    </script>
+</body>
+</html>
